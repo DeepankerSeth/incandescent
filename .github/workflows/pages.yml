@@ -1,0 +1,49 @@
+name: Deploy Jan Adhikar to GitHub Pages
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Reconstruct and verify static site
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .site-bundle/part-* | base64 --decode > site.tar.gz
+          echo "eb5f728a4dc494a34de52bbda4a7fc3d49a7437234e128ed3b8a2ead662f3823  site.tar.gz" | sha256sum --check --strict
+          mkdir -p _site
+          tar -xzf site.tar.gz -C _site
+          test -f _site/index.html
+          test -f _site/app.js
+          test -f _site/styles.css
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4
